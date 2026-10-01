@@ -2006,6 +2006,10 @@ static void asm_fpmath(ASMState *as, IRIns *ir)
     Reg dest = ra_dest(as, ir, RSET_FPR);
     Reg left = asm_fuseload(as, ir->op1, RSET_FPR);
     emit_mrm(as, XO_SQRTSD, dest, left);
+
+    if (left != dest)  /* Break false dependency on the old dest value. */
+      emit_rr(as, XO_XORPS, dest, dest);
+
   } else if (fpm <= IRFPM_TRUNC) {
     if (as->flags & JIT_F_SSE4_1) {  /* SSE4.1 has a rounding instruction. */
       Reg dest = ra_dest(as, ir, RSET_FPR);
@@ -2021,6 +2025,10 @@ static void asm_fpmath(ASMState *as, IRIns *ir)
 	as->mcp[0] = as->mcp[1]; as->mcp[1] = 0x0f;  /* Swap 0F and REX. */
       }
       *--as->mcp = 0x66;  /* 1st byte of ROUNDSD opcode. */
+
+      if (left != dest)  /* Break false dependency on the old dest value. */
+         emit_rr(as, XO_XORPS, dest, dest);
+
     } else {  /* Call helper functions for SSE2 variant. */
       /* The modified regs must match with the *.dasc implementation. */
       RegSet drop = RSET_RANGE(RID_XMM0, RID_XMM3+1)|RID2RSET(RID_EAX);
